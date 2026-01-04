@@ -15,6 +15,13 @@
       "when": 1767495303932,
       "tag": "0001_large_solo",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1767498678608,
+      "tag": "0002_dark_supernaut",
+      "breakpoints": true
     }
   ]
 }

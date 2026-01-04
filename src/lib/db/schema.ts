@@ -22,6 +22,7 @@ export const campaigns = pgTable("campaigns", {
   id: serial("id").primaryKey(),
   artist_id: integer("artist_id").references(() => users.id).notNull(),
   title: varchar("title").notNull(),
+  description: text("description"),
   budget_cents: bigint("budget_cents", { mode: "number" }).notNull(),
   currency: varchar("currency").notNull(),
   payment_intent_id: varchar("payment_intent_id"),
@@ -31,7 +32,9 @@ export const campaigns = pgTable("campaigns", {
 export const missions = pgTable("missions", {
   id: uuid("id").primaryKey().defaultRandom(),
   campaign_id: integer("campaign_id").references(() => campaigns.id).notNull(),
-  creator_id: varchar("creator_id"), // nullable string for dev auth placeholder
+  creator_id: varchar("creator_id"),
+  title: varchar("title").notNull(),
+  brief: text("brief"),
   state: missionStateEnum("state").notNull().default("OPEN"),
   payout_cents: integer("payout_cents").notNull(),
   created_at: timestamp("created_at").defaultNow().notNull(),

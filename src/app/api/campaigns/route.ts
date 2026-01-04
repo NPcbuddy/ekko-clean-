@@ -14,6 +14,7 @@ import { requireRole } from "@/lib/auth";
 
 const createCampaignSchema = z.object({
   title: z.string().min(1, "Title must be at least 1 character"),
+  description: z.string().optional(),
   budgetCents: z.number().int().min(100, "Budget must be at least 100 cents"),
   currency: z.string().optional().default("usd"),
 });
@@ -54,6 +55,7 @@ export async function POST(request: Request) {
       .values({
         artist_id: artistId,
         title: validated.title,
+        description: validated.description || null,
         budget_cents: validated.budgetCents,
         currency: validated.currency || "usd",
       })

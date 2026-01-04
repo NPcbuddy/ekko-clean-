@@ -9,6 +9,7 @@ interface Campaign {
   id: number;
   artist_id: number;
   title: string;
+  description: string | null;
   budget_cents: number;
   currency: string;
   payment_intent_id: string | null;
@@ -19,6 +20,8 @@ interface Mission {
   id: string;
   campaign_id: number;
   creator_id: string | null;
+  title: string;
+  brief: string | null;
   state: string;
   payout_cents: number;
   created_at: string;
@@ -62,12 +65,15 @@ export default function ArtistDashboard() {
   // Create Campaign modal state
   const [showCampaignModal, setShowCampaignModal] = useState(false);
   const [campaignTitle, setCampaignTitle] = useState("");
+  const [campaignDescription, setCampaignDescription] = useState("");
   const [campaignBudget, setCampaignBudget] = useState("");
   const [campaignError, setCampaignError] = useState<string | null>(null);
   const [campaignLoading, setCampaignLoading] = useState(false);
 
   // Create Mission modal state
   const [missionModalCampaign, setMissionModalCampaign] = useState<Campaign | null>(null);
+  const [missionTitle, setMissionTitle] = useState("");
+  const [missionBrief, setMissionBrief] = useState("");
   const [missionPayout, setMissionPayout] = useState("");
   const [missionError, setMissionError] = useState<string | null>(null);
   const [missionLoading, setMissionLoading] = useState(false);
@@ -213,6 +219,7 @@ export default function ArtistDashboard() {
         },
         body: JSON.stringify({
           title: campaignTitle,
+          description: campaignDescription || undefined,
           budgetCents,
         }),
       });
@@ -224,6 +231,7 @@ export default function ArtistDashboard() {
 
       setShowCampaignModal(false);
       setCampaignTitle("");
+      setCampaignDescription("");
       setCampaignBudget("");
       await fetchData();
     } catch (err) {
@@ -246,6 +254,10 @@ export default function ArtistDashboard() {
         throw new Error("Payout must be at least $1.00");
       }
 
+      if (!missionTitle.trim()) {
+        throw new Error("Mission title is required");
+      }
+
       const res = await fetch(`/api/campaigns/${missionModalCampaign.id}/missions`, {
         method: "POST",
         headers: {
@@ -253,6 +265,8 @@ export default function ArtistDashboard() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          title: missionTitle,
+          brief: missionBrief || undefined,
           payoutCents,
         }),
       });
@@ -263,6 +277,8 @@ export default function ArtistDashboard() {
       }
 
       setMissionModalCampaign(null);
+      setMissionTitle("");
+      setMissionBrief("");
       setMissionPayout("");
       await fetchData();
     } catch (err) {
@@ -979,6 +995,31 @@ export default function ArtistDashboard() {
 
               <div style={{ marginBottom: "16px" }}>
                 <label
+                  htmlFor="campaignDescription"
+                  style={{ display: "block", marginBottom: "8px", fontWeight: "bold" }}
+                >
+                  Description (optional)
+                </label>
+                <textarea
+                  id="campaignDescription"
+                  value={campaignDescription}
+                  onChange={(e) => setCampaignDescription(e.target.value)}
+                  placeholder="Describe your campaign..."
+                  rows={3}
+                  style={{
+                    width: "100%",
+                    padding: "12px",
+                    fontSize: "16px",
+                    border: "1px solid #ccc",
+                    borderRadius: "4px",
+                    boxSizing: "border-box",
+                    resize: "vertical",
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: "16px" }}>
+                <label
                   htmlFor="campaignBudget"
                   style={{ display: "block", marginBottom: "8px", fontWeight: "bold" }}
                 >
@@ -1087,6 +1128,56 @@ export default function ArtistDashboard() {
             <form onSubmit={handleCreateMission}>
               <div style={{ marginBottom: "16px" }}>
                 <label
+                  htmlFor="missionTitle"
+                  style={{ display: "block", marginBottom: "8px", fontWeight: "bold" }}
+                >
+                  Mission Title
+                </label>
+                <input
+                  id="missionTitle"
+                  type="text"
+                  value={missionTitle}
+                  onChange={(e) => setMissionTitle(e.target.value)}
+                  placeholder="e.g., Create a 30-second TikTok video"
+                  required
+                  style={{
+                    width: "100%",
+                    padding: "12px",
+                    fontSize: "16px",
+                    border: "1px solid #ccc",
+                    borderRadius: "4px",
+                    boxSizing: "border-box",
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: "16px" }}>
+                <label
+                  htmlFor="missionBrief"
+                  style={{ display: "block", marginBottom: "8px", fontWeight: "bold" }}
+                >
+                  Brief / Instructions (optional)
+                </label>
+                <textarea
+                  id="missionBrief"
+                  value={missionBrief}
+                  onChange={(e) => setMissionBrief(e.target.value)}
+                  placeholder="Describe what the creator needs to do..."
+                  rows={4}
+                  style={{
+                    width: "100%",
+                    padding: "12px",
+                    fontSize: "16px",
+                    border: "1px solid #ccc",
+                    borderRadius: "4px",
+                    boxSizing: "border-box",
+                    resize: "vertical",
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: "16px" }}>
+                <label
                   htmlFor="missionPayout"
                   style={{ display: "block", marginBottom: "8px", fontWeight: "bold" }}
                 >
@@ -1131,14 +1222,14 @@ export default function ArtistDashboard() {
                 </button>
                 <button
                   type="submit"
-                  disabled={missionLoading || !missionPayout}
+                  disabled={missionLoading || !missionTitle || !missionPayout}
                   style={{
                     padding: "12px 24px",
-                    backgroundColor: missionLoading || !missionPayout ? "#ccc" : "#28a745",
+                    backgroundColor: missionLoading || !missionTitle || !missionPayout ? "#ccc" : "#28a745",
                     color: "white",
                     border: "none",
                     borderRadius: "4px",
-                    cursor: missionLoading || !missionPayout ? "not-allowed" : "pointer",
+                    cursor: missionLoading || !missionTitle || !missionPayout ? "not-allowed" : "pointer",
                     fontSize: "14px",
                     fontWeight: "bold",
                   }}

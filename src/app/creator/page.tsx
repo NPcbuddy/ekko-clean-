@@ -9,6 +9,8 @@ interface Mission {
   id: string;
   campaign_id: number;
   creator_id: string | null;
+  title: string;
+  brief: string | null;
   state: string;
   payout_cents: number;
   created_at: string;
@@ -413,7 +415,14 @@ export default function CreatorDashboard() {
                       justifyContent: "space-between",
                       alignItems: "flex-start",
                     }}>
-                      <div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{
+                          fontSize: "18px",
+                          fontWeight: "bold",
+                          marginBottom: "8px",
+                        }}>
+                          {mission.title}
+                        </div>
                         <div style={{
                           display: "flex",
                           alignItems: "center",
@@ -421,7 +430,7 @@ export default function CreatorDashboard() {
                           marginBottom: "8px",
                         }}>
                           <span style={{
-                            fontSize: "24px",
+                            fontSize: "20px",
                             fontWeight: "bold",
                             color: "#2e7d32",
                           }}>
@@ -438,10 +447,19 @@ export default function CreatorDashboard() {
                             {mission.state}
                           </span>
                         </div>
-                        <div style={{ color: "#666", fontSize: "14px" }}>
-                          Campaign #{mission.campaign_id}
-                        </div>
-                        <div style={{ color: "#999", fontSize: "12px", marginTop: "4px" }}>
+                        {mission.brief && (
+                          <div style={{
+                            color: "#555",
+                            fontSize: "14px",
+                            marginBottom: "8px",
+                            lineHeight: "1.4",
+                          }}>
+                            {mission.brief.length > 150
+                              ? `${mission.brief.substring(0, 150)}...`
+                              : mission.brief}
+                          </div>
+                        )}
+                        <div style={{ color: "#999", fontSize: "12px" }}>
                           Posted {new Date(mission.created_at).toLocaleDateString()}
                         </div>
                       </div>
@@ -457,6 +475,7 @@ export default function CreatorDashboard() {
                           cursor: actionLoading === mission.id ? "not-allowed" : "pointer",
                           fontSize: "14px",
                           fontWeight: "bold",
+                          alignSelf: "flex-start",
                         }}
                       >
                         {actionLoading === mission.id ? "Accepting..." : "Accept Mission"}
@@ -510,7 +529,14 @@ export default function CreatorDashboard() {
                       justifyContent: "space-between",
                       alignItems: "flex-start",
                     }}>
-                      <div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{
+                          fontSize: "18px",
+                          fontWeight: "bold",
+                          marginBottom: "8px",
+                        }}>
+                          {mission.title}
+                        </div>
                         <div style={{
                           display: "flex",
                           alignItems: "center",
@@ -518,7 +544,7 @@ export default function CreatorDashboard() {
                           marginBottom: "8px",
                         }}>
                           <span style={{
-                            fontSize: "24px",
+                            fontSize: "20px",
                             fontWeight: "bold",
                             color: mission.state === "PAID" ? "#1b5e20" : "#333",
                           }}>
@@ -536,10 +562,7 @@ export default function CreatorDashboard() {
                             {mission.state === "PAID" && " ✓"}
                           </span>
                         </div>
-                        <div style={{ color: "#666", fontSize: "14px" }}>
-                          Campaign #{mission.campaign_id}
-                        </div>
-                        <div style={{ color: "#999", fontSize: "12px", marginTop: "4px" }}>
+                        <div style={{ color: "#999", fontSize: "12px" }}>
                           Updated {new Date(mission.updated_at).toLocaleDateString()}
                         </div>
                       </div>

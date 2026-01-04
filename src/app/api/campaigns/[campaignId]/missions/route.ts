@@ -12,6 +12,8 @@ import {
 } from "@/lib/pagination";
 
 const createMissionSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  brief: z.string().optional(),
   payoutCents: z.number().int().min(100, "Payout must be at least 100 cents"),
 });
 
@@ -73,6 +75,8 @@ export async function POST(
       .values({
         campaign_id: campaignId,
         creator_id: null,
+        title: validated.title,
+        brief: validated.brief || null,
         state: "OPEN",
         payout_cents: validated.payoutCents,
       })
