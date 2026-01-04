@@ -50,13 +50,12 @@ export async function getAuthUserId(request: NextRequest | Request): Promise<str
 }
 
 /**
- * Get app user record from public.users table
- * For ARTIST role: uses DEV_ARTIST_ID from env or finds first ARTIST user
- * For CREATOR role: uses Supabase auth user ID directly (stored in missions.creator_id)
+ * Get app user record from public.users table by auth_user_id
+ * Returns the user if found, or null if not found
  */
 export async function getAppUser(
   authUserId: string,
-  requiredRole: "ARTIST" | "CREATOR"
+  requiredRole?: "ARTIST" | "CREATOR"
 ): Promise<{ id: number; role: "ARTIST" | "CREATOR" } | null> {
   const { getDb } = await import("@/lib/db");
   const { users } = await import("@/lib/db/schema");
@@ -64,46 +63,23 @@ export async function getAppUser(
 
   const db = getDb();
 
-  if (requiredRole === "ARTIST") {
-    // For ARTIST: use DEV_ARTIST_ID from env, or find first ARTIST user
-    const devArtistId = process.env.DEV_ARTIST_ID;
-    
-    if (devArtistId) {
-      const artistId = parseInt(devArtistId, 10);
-      if (!isNaN(artistId)) {
-        const [user] = await db
-          .select()
-          .from(users)
-          .where(eq(users.id, artistId))
-          .limit(1);
-        
-        if (user && user.role === "ARTIST") {
-          return { id: user.id, role: user.role };
-        }
-      }
-    }
+  // Look up user by auth_user_id
+  const [user] = await db
+    .select()
+    .from(users)
+    .where(eq(users.auth_user_id, authUserId))
+    .limit(1);
 
-    // Fallback: find first ARTIST user
-    const { userRoleEnum } = await import("@/lib/db/schema");
-    const [user] = await db
-      .select()
-      .from(users)
-      .where(eq(users.role, userRoleEnum.enumValues[0]))
-      .limit(1);
-
-    if (user && user.role === "ARTIST") {
-      return { id: user.id, role: user.role };
-    }
-
+  if (!user) {
     return null;
-  } else {
-    // For CREATOR: we don't need to look up in users table
-    // The authUserId is used directly as creator_id in missions
-    // But we should verify the user exists in Supabase auth
-    // For now, just return a placeholder that indicates CREATOR role
-    // The actual creator_id will be the authUserId string
-    return { id: 0, role: "CREATOR" }; // Placeholder, actual ID is authUserId
   }
+
+  // If a required role is specified, verify it matches
+  if (requiredRole && user.role !== requiredRole) {
+    return null;
+  }
+
+  return { id: user.id, role: user.role };
 }
 
 /**
