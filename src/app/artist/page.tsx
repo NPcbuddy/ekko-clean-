@@ -34,7 +34,7 @@ interface MissionWithSubmission extends Mission {
   } | null;
 }
 
-type TabType = "campaigns" | "reviews";
+type TabType = "campaigns" | "reviews" | "payouts";
 
 const statusColors: Record<string, { bg: string; text: string }> = {
   OPEN: { bg: "#e3f2fd", text: "#1565c0" },
@@ -53,6 +53,7 @@ export default function ArtistDashboard() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [campaignMissions, setCampaignMissions] = useState<Record<number, Mission[]>>({});
   const [pendingReviews, setPendingReviews] = useState<MissionWithSubmission[]>([]);
+  const [pendingPayouts, setPendingPayouts] = useState<Mission[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [expandedCampaign, setExpandedCampaign] = useState<number | null>(null);
@@ -138,6 +139,14 @@ export default function ArtistDashboard() {
           }
         }
         setPendingReviews(reviewsWithSubmissions);
+      }
+
+      // Fetch pending payouts (VERIFIED missions)
+      const payoutsRes = await fetch("/api/missions?state=VERIFIED");
+      if (payoutsRes.ok) {
+        const data = await payoutsRes.json();
+        const verifiedMissions = Array.isArray(data) ? data : data.data || [];
+        setPendingPayouts(verifiedMissions);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch data");
@@ -280,6 +289,34 @@ export default function ArtistDashboard() {
     }
   };
 
+  const handlePayout = async (missionId: string) => {
+    if (!session) return;
+
+    setActionLoading(missionId);
+    setError(null);
+
+    try {
+      const res = await fetch(`/api/missions/${missionId}/payout`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to process payout");
+      }
+
+      await fetchData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to process payout");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const formatCurrency = (cents: number) => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
@@ -404,6 +441,21 @@ export default function ArtistDashboard() {
             }}
           >
             Pending Reviews ({pendingReviews.length})
+          </button>
+          <button
+            onClick={() => setActiveTab("payouts")}
+            style={{
+              padding: "12px 24px",
+              fontSize: "16px",
+              backgroundColor: activeTab === "payouts" ? "#0070f3" : "transparent",
+              color: activeTab === "payouts" ? "white" : "#333",
+              border: "none",
+              borderRadius: "4px 4px 0 0",
+              cursor: "pointer",
+              fontWeight: activeTab === "payouts" ? "bold" : "normal",
+            }}
+          >
+            Ready to Pay ({pendingPayouts.length})
           </button>
         </div>
       </div>
@@ -681,6 +733,87 @@ export default function ArtistDashboard() {
                           {actionLoading === mission.id ? "..." : "Reject"}
                         </button>
                       </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "payouts" && (
+          <div>
+            {pendingPayouts.length === 0 ? (
+              <div style={{
+                textAlign: "center",
+                padding: "40px",
+                color: "#666",
+                backgroundColor: "white",
+                borderRadius: "8px",
+              }}>
+                No verified missions ready for payout.
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                {pendingPayouts.map((mission) => (
+                  <div
+                    key={mission.id}
+                    style={{
+                      backgroundColor: "white",
+                      borderRadius: "8px",
+                      padding: "20px",
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                    }}
+                  >
+                    <div style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "flex-start",
+                    }}>
+                      <div>
+                        <div style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "12px",
+                          marginBottom: "8px",
+                        }}>
+                          <span style={{ fontSize: "24px", fontWeight: "bold", color: "#2e7d32" }}>
+                            {formatCurrency(mission.payout_cents)}
+                          </span>
+                          <span style={{
+                            padding: "4px 8px",
+                            borderRadius: "4px",
+                            fontSize: "12px",
+                            fontWeight: "bold",
+                            backgroundColor: statusColors.VERIFIED.bg,
+                            color: statusColors.VERIFIED.text,
+                          }}>
+                            VERIFIED
+                          </span>
+                        </div>
+                        <div style={{ color: "#666", fontSize: "14px", marginBottom: "4px" }}>
+                          Campaign #{mission.campaign_id}
+                        </div>
+                        <div style={{ color: "#999", fontSize: "12px" }}>
+                          Verified {new Date(mission.updated_at).toLocaleDateString()}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handlePayout(mission.id)}
+                        disabled={actionLoading === mission.id}
+                        style={{
+                          padding: "12px 24px",
+                          backgroundColor: actionLoading === mission.id ? "#ccc" : "#1b5e20",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "4px",
+                          cursor: actionLoading === mission.id ? "not-allowed" : "pointer",
+                          fontSize: "14px",
+                          fontWeight: "bold",
+                        }}
+                      >
+                        {actionLoading === mission.id ? "Processing..." : "Pay Creator"}
+                      </button>
                     </div>
                   </div>
                 ))}
