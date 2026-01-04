@@ -89,7 +89,7 @@ export default function Home() {
       <div style={{ fontSize: '16px', textAlign: 'center' }}>
         <div>Signed in as: {session.user.email}</div>
       </div>
-      <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+      <div style={{ display: 'flex', gap: '12px', marginTop: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
         <a
           href="/creator"
           style={{
@@ -103,6 +103,20 @@ export default function Home() {
           }}
         >
           Creator Dashboard
+        </a>
+        <a
+          href="/artist"
+          style={{
+            padding: '12px 24px',
+            fontSize: '16px',
+            backgroundColor: '#28a745',
+            color: 'white',
+            borderRadius: '4px',
+            textDecoration: 'none',
+            fontWeight: 'bold',
+          }}
+        >
+          Artist Dashboard
         </a>
       </div>
       <button
