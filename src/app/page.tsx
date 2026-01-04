@@ -88,9 +88,22 @@ export default function Home() {
       <div>EKKO is running</div>
       <div style={{ fontSize: '16px', textAlign: 'center' }}>
         <div>Signed in as: {session.user.email}</div>
-        <div style={{ marginTop: '8px', fontSize: '14px', color: '#666' }}>
-          Access token available in browser storage
-        </div>
+      </div>
+      <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+        <a
+          href="/creator"
+          style={{
+            padding: '12px 24px',
+            fontSize: '16px',
+            backgroundColor: '#0070f3',
+            color: 'white',
+            borderRadius: '4px',
+            textDecoration: 'none',
+            fontWeight: 'bold',
+          }}
+        >
+          Creator Dashboard
+        </a>
       </div>
       <button
         onClick={handleSignOut}
