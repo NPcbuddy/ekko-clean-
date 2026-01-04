@@ -2,6 +2,12 @@ import { pgEnum, pgTable, serial, timestamp, varchar, integer, bigint, uuid, tex
 
 export const userRoleEnum = pgEnum("user_role", ["ARTIST", "CREATOR"]);
 
+export const paymentStatusEnum = pgEnum("payment_status", [
+  "PENDING",
+  "FUNDED",
+  "REFUNDED",
+]);
+
 export const missionStateEnum = pgEnum("mission_state", [
   "OPEN",
   "ACCEPTED",
@@ -26,6 +32,7 @@ export const campaigns = pgTable("campaigns", {
   budget_cents: bigint("budget_cents", { mode: "number" }).notNull(),
   currency: varchar("currency").notNull(),
   payment_intent_id: varchar("payment_intent_id"),
+  payment_status: paymentStatusEnum("payment_status").notNull().default("PENDING"),
   created_at: timestamp("created_at").defaultNow().notNull(),
 });
 

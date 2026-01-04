@@ -61,6 +61,14 @@ export async function POST(
       );
     }
 
+    // Check campaign is funded
+    if (campaign.payment_status !== "FUNDED") {
+      return NextResponse.json(
+        { error: "Campaign is not funded. Please fund the campaign before processing payouts." },
+        { status: 402 } // Payment Required
+      );
+    }
+
     // Check mission is VERIFIED
     if (mission.state !== "VERIFIED") {
       return NextResponse.json(

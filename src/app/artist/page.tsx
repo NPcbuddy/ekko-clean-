@@ -13,6 +13,7 @@ interface Campaign {
   budget_cents: number;
   currency: string;
   payment_intent_id: string | null;
+  payment_status: "PENDING" | "FUNDED" | "REFUNDED";
   created_at: string;
 }
 
@@ -285,6 +286,42 @@ export default function ArtistDashboard() {
       setMissionError(err instanceof Error ? err.message : "Failed to create mission");
     } finally {
       setMissionLoading(false);
+    }
+  };
+
+  const handleFundCampaign = async (campaignId: number) => {
+    if (!session) return;
+
+    setActionLoading(`fund-${campaignId}`);
+    setError(null);
+
+    try {
+      const res = await fetch(`/api/campaigns/${campaignId}/fund`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      const data = await res.json();
+
+      if (res.status === 402) {
+        // Payment not yet confirmed - in a real app, would open Stripe checkout
+        // For now, show message about simulating payment
+        setError(`Payment pending. In production, complete payment using Stripe. PaymentIntent: ${data.paymentIntent?.id}`);
+        return;
+      }
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to fund campaign");
+      }
+
+      await fetchData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to fund campaign");
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -627,9 +664,33 @@ export default function ArtistDashboard() {
                           alignItems: "flex-start",
                         }}>
                           <div>
-                            <h3 style={{ margin: "0 0 8px", fontSize: "20px" }}>
-                              {campaign.title}
-                            </h3>
+                            <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" }}>
+                              <h3 style={{ margin: 0, fontSize: "20px" }}>
+                                {campaign.title}
+                              </h3>
+                              <span
+                                style={{
+                                  padding: "4px 8px",
+                                  borderRadius: "4px",
+                                  fontSize: "12px",
+                                  fontWeight: "bold",
+                                  backgroundColor: campaign.payment_status === "FUNDED"
+                                    ? "#e8f5e9"
+                                    : campaign.payment_status === "PENDING"
+                                    ? "#fff3e0"
+                                    : "#ffebee",
+                                  color: campaign.payment_status === "FUNDED"
+                                    ? "#2e7d32"
+                                    : campaign.payment_status === "PENDING"
+                                    ? "#ef6c00"
+                                    : "#c62828",
+                                }}
+                              >
+                                {campaign.payment_status === "FUNDED" && "✓ Funded"}
+                                {campaign.payment_status === "PENDING" && "Awaiting Payment"}
+                                {campaign.payment_status === "REFUNDED" && "Refunded"}
+                              </span>
+                            </div>
                             <div style={{ color: "#666", fontSize: "14px", marginBottom: "8px" }}>
                               Budget: {formatCurrency(campaign.budget_cents)}
                             </div>
@@ -656,10 +717,33 @@ export default function ArtistDashboard() {
                             </div>
                           </div>
                           <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                            {campaign.payment_status === "PENDING" && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleFundCampaign(campaign.id);
+                                }}
+                                disabled={actionLoading === `fund-${campaign.id}`}
+                                style={{
+                                  padding: "8px 16px",
+                                  backgroundColor: actionLoading === `fund-${campaign.id}` ? "#ccc" : "#ff9800",
+                                  color: "white",
+                                  border: "none",
+                                  borderRadius: "4px",
+                                  cursor: actionLoading === `fund-${campaign.id}` ? "not-allowed" : "pointer",
+                                  fontSize: "14px",
+                                  fontWeight: "bold",
+                                }}
+                              >
+                                {actionLoading === `fund-${campaign.id}` ? "Processing..." : "Fund Campaign"}
+                              </button>
+                            )}
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setMissionModalCampaign(campaign);
+                                setMissionTitle("");
+                                setMissionBrief("");
                                 setMissionPayout("");
                                 setMissionError(null);
                               }}
