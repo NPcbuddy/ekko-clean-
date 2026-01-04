@@ -13,6 +13,7 @@ export const missionStateEnum = pgEnum("mission_state", [
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
+  auth_user_id: varchar("auth_user_id").unique(), // Supabase auth user ID
   role: userRoleEnum("role").notNull(),
   created_at: timestamp("created_at").defaultNow().notNull(),
 });

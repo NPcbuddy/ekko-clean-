@@ -40,13 +40,11 @@ export async function POST(request: Request) {
 
     const db = getDb();
 
-    // Check if user already exists with this role
-    // Note: This is a simplified approach - in production you might want to
-    // add an auth_user_id column to track the mapping between Supabase auth and app users
+    // Check if user already exists by auth_user_id
     const [existingUser] = await db
       .select()
       .from(users)
-      .where(eq(users.role, role))
+      .where(eq(users.auth_user_id, authUserId))
       .limit(1);
 
     if (existingUser) {
@@ -60,10 +58,11 @@ export async function POST(request: Request) {
       );
     }
 
-    // Create new user with specified role
+    // Create new user with specified role and auth_user_id
     const [newUser] = await db
       .insert(users)
       .values({
+        auth_user_id: authUserId,
         role,
       })
       .returning();

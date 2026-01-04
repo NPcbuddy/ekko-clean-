@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import type { Session } from "@supabase/supabase-js";
@@ -30,6 +30,7 @@ export default function CreatorDashboard() {
   const router = useRouter();
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [accessDenied, setAccessDenied] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>("available");
   const [availableMissions, setAvailableMissions] = useState<Mission[]>([]);
   const [myMissions, setMyMissions] = useState<Mission[]>([]);
@@ -42,26 +43,64 @@ export default function CreatorDashboard() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitLoading, setSubmitLoading] = useState(false);
 
+  const checkUserRole = useCallback(async (accessToken: string) => {
+    try {
+      const res = await fetch("/api/auth/me", {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!res.ok) {
+        // User not found in database, redirect to signup
+        if (res.status === 404) {
+          router.push("/auth/signup");
+          return false;
+        }
+        throw new Error("Failed to fetch user role");
+      }
+
+      const user = await res.json();
+      if (user.role !== "CREATOR") {
+        setAccessDenied(true);
+        return false;
+      }
+      return true;
+    } catch (err) {
+      console.error("Error checking user role:", err);
+      setError("Failed to verify access. Please try again.");
+      return false;
+    }
+  }, [router]);
+
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!session) {
         router.push("/auth/signin");
         return;
       }
-      setSession(session);
+
+      const hasAccess = await checkUserRole(session.access_token);
+      if (hasAccess) {
+        setSession(session);
+      }
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (!session) {
         router.push("/auth/signin");
         return;
       }
-      setSession(session);
+
+      const hasAccess = await checkUserRole(session.access_token);
+      if (hasAccess) {
+        setSession(session);
+      }
     });
 
     return () => subscription.unsubscribe();
-  }, [router]);
+  }, [router, checkUserRole]);
 
   useEffect(() => {
     if (session) {
@@ -189,6 +228,57 @@ export default function CreatorDashboard() {
         fontSize: "18px",
       }}>
         Loading...
+      </div>
+    );
+  }
+
+  if (accessDenied) {
+    return (
+      <div style={{
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+        alignItems: "center",
+        minHeight: "100vh",
+        gap: "16px",
+        padding: "20px",
+        textAlign: "center",
+      }}>
+        <div style={{ fontSize: "48px" }}>🚫</div>
+        <h1 style={{ fontSize: "24px", margin: 0 }}>Access Denied</h1>
+        <p style={{ color: "#666", margin: 0 }}>
+          This dashboard is only accessible to Creator accounts.
+        </p>
+        <div style={{ display: "flex", gap: "12px", marginTop: "16px" }}>
+          <button
+            onClick={() => router.push("/")}
+            style={{
+              padding: "12px 24px",
+              backgroundColor: "#0070f3",
+              color: "white",
+              border: "none",
+              borderRadius: "4px",
+              cursor: "pointer",
+              fontSize: "14px",
+            }}
+          >
+            Go to Home
+          </button>
+          <button
+            onClick={() => router.push("/artist")}
+            style={{
+              padding: "12px 24px",
+              backgroundColor: "#28a745",
+              color: "white",
+              border: "none",
+              borderRadius: "4px",
+              cursor: "pointer",
+              fontSize: "14px",
+            }}
+          >
+            Go to Artist Dashboard
+          </button>
+        </div>
       </div>
     );
   }
