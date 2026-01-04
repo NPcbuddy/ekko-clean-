@@ -4,10 +4,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 
+type UserRole = "ARTIST" | "CREATOR";
+
 export default function SignUpPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [role, setRole] = useState<UserRole>("CREATOR");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -34,7 +37,9 @@ export default function SignUpPage() {
           method: "POST",
           headers: {
             "Authorization": `Bearer ${data.session.access_token}`,
+            "Content-Type": "application/json",
           },
+          body: JSON.stringify({ role }),
         });
 
         if (!response.ok) {
@@ -124,6 +129,34 @@ export default function SignUpPage() {
               boxSizing: 'border-box'
             }}
           />
+        </div>
+
+        <div>
+          <label style={{ display: 'block', marginBottom: '8px' }}>
+            I am a...
+          </label>
+          <div style={{ display: 'flex', gap: '16px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+              <input
+                type="radio"
+                name="role"
+                value="CREATOR"
+                checked={role === "CREATOR"}
+                onChange={(e) => setRole(e.target.value as UserRole)}
+              />
+              Creator
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+              <input
+                type="radio"
+                name="role"
+                value="ARTIST"
+                checked={role === "ARTIST"}
+                onChange={(e) => setRole(e.target.value as UserRole)}
+              />
+              Artist
+            </label>
+          </div>
         </div>
 
         <button
