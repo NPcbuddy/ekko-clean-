@@ -530,6 +530,78 @@ export default function ArtistDashboard() {
         </p>
       </div>
 
+      {/* Spending Summary */}
+      <div style={{
+        maxWidth: "900px",
+        margin: "0 auto 24px",
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+        gap: "16px",
+      }}>
+        <div style={{
+          backgroundColor: "#e3f2fd",
+          borderRadius: "8px",
+          padding: "20px",
+          textAlign: "center",
+        }}>
+          <div style={{ fontSize: "28px", fontWeight: "bold", color: "#1565c0" }}>
+            {formatCurrency(campaigns.reduce((sum, c) => sum + c.budget_cents, 0))}
+          </div>
+          <div style={{ fontSize: "14px", color: "#1976d2", marginTop: "4px" }}>
+            Total Budget
+          </div>
+        </div>
+        <div style={{
+          backgroundColor: "#e8f5e9",
+          borderRadius: "8px",
+          padding: "20px",
+          textAlign: "center",
+        }}>
+          <div style={{ fontSize: "28px", fontWeight: "bold", color: "#1b5e20" }}>
+            {formatCurrency(
+              Object.values(campaignMissions)
+                .flat()
+                .filter(m => m.state === "PAID")
+                .reduce((sum, m) => sum + m.payout_cents, 0)
+            )}
+          </div>
+          <div style={{ fontSize: "14px", color: "#2e7d32", marginTop: "4px" }}>
+            Total Paid Out
+          </div>
+        </div>
+        <div style={{
+          backgroundColor: "#fff3e0",
+          borderRadius: "8px",
+          padding: "20px",
+          textAlign: "center",
+        }}>
+          <div style={{ fontSize: "28px", fontWeight: "bold", color: "#ef6c00" }}>
+            {formatCurrency(
+              Object.values(campaignMissions)
+                .flat()
+                .filter(m => m.state === "VERIFIED")
+                .reduce((sum, m) => sum + m.payout_cents, 0)
+            )}
+          </div>
+          <div style={{ fontSize: "14px", color: "#f57c00", marginTop: "4px" }}>
+            Pending Payouts
+          </div>
+        </div>
+        <div style={{
+          backgroundColor: "#f3e5f5",
+          borderRadius: "8px",
+          padding: "20px",
+          textAlign: "center",
+        }}>
+          <div style={{ fontSize: "28px", fontWeight: "bold", color: "#7b1fa2" }}>
+            {pendingReviews.length}
+          </div>
+          <div style={{ fontSize: "14px", color: "#9c27b0", marginTop: "4px" }}>
+            Awaiting Review
+          </div>
+        </div>
+      </div>
+
       {/* Error Display */}
       {error && (
         <div style={{
@@ -738,6 +810,23 @@ export default function ArtistDashboard() {
                                 {actionLoading === `fund-${campaign.id}` ? "Processing..." : "Fund Campaign"}
                               </button>
                             )}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                router.push(`/artist/campaigns/${campaign.id}`);
+                              }}
+                              style={{
+                                padding: "8px 16px",
+                                backgroundColor: "#0070f3",
+                                color: "white",
+                                border: "none",
+                                borderRadius: "4px",
+                                cursor: "pointer",
+                                fontSize: "14px",
+                              }}
+                            >
+                              View Details
+                            </button>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();

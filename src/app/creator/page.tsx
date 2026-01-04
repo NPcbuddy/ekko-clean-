@@ -325,6 +325,55 @@ export default function CreatorDashboard() {
         </p>
       </div>
 
+      {/* Earnings Summary */}
+      <div style={{
+        maxWidth: "900px",
+        margin: "0 auto 24px",
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+        gap: "16px",
+      }}>
+        <div style={{
+          backgroundColor: "#e8f5e9",
+          borderRadius: "8px",
+          padding: "20px",
+          textAlign: "center",
+        }}>
+          <div style={{ fontSize: "28px", fontWeight: "bold", color: "#1b5e20" }}>
+            {formatPayout(myMissions.filter(m => m.state === "PAID").reduce((sum, m) => sum + m.payout_cents, 0))}
+          </div>
+          <div style={{ fontSize: "14px", color: "#2e7d32", marginTop: "4px" }}>
+            Total Earned
+          </div>
+        </div>
+        <div style={{
+          backgroundColor: "#fff3e0",
+          borderRadius: "8px",
+          padding: "20px",
+          textAlign: "center",
+        }}>
+          <div style={{ fontSize: "28px", fontWeight: "bold", color: "#ef6c00" }}>
+            {formatPayout(myMissions.filter(m => m.state === "VERIFIED").reduce((sum, m) => sum + m.payout_cents, 0))}
+          </div>
+          <div style={{ fontSize: "14px", color: "#f57c00", marginTop: "4px" }}>
+            Pending Payout
+          </div>
+        </div>
+        <div style={{
+          backgroundColor: "#e3f2fd",
+          borderRadius: "8px",
+          padding: "20px",
+          textAlign: "center",
+        }}>
+          <div style={{ fontSize: "28px", fontWeight: "bold", color: "#1565c0" }}>
+            {formatPayout(myMissions.filter(m => m.state === "ACCEPTED" || m.state === "SUBMITTED").reduce((sum, m) => sum + m.payout_cents, 0))}
+          </div>
+          <div style={{ fontSize: "14px", color: "#1976d2", marginTop: "4px" }}>
+            In Progress
+          </div>
+        </div>
+      </div>
+
       {/* Error Display */}
       {error && (
         <div style={{
