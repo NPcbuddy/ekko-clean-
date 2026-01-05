@@ -10,6 +10,8 @@
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
+    "@stripe/react-stripe-js": "^5.4.1",
+    "@stripe/stripe-js": "^8.6.0",
     "@supabase/supabase-js": "^2.89.0",
     "drizzle-orm": "^0.45.1",
     "next": "14.2.35",

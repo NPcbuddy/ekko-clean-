@@ -4,6 +4,12 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import type { Session } from "@supabase/supabase-js";
+import dynamic from "next/dynamic";
+
+const StripeCheckout = dynamic(() => import("@/components/StripeCheckout"), {
+  ssr: false,
+  loading: () => <div style={{ padding: "20px", textAlign: "center" }}>Loading payment form...</div>,
+});
 
 interface Campaign {
   id: number;
@@ -78,6 +84,11 @@ export default function ArtistDashboard() {
   const [missionPayout, setMissionPayout] = useState("");
   const [missionError, setMissionError] = useState<string | null>(null);
   const [missionLoading, setMissionLoading] = useState(false);
+
+  // Checkout modal state
+  const [checkoutCampaign, setCheckoutCampaign] = useState<Campaign | null>(null);
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   const checkUserRole = useCallback(async (accessToken: string) => {
     try {
@@ -289,40 +300,44 @@ export default function ArtistDashboard() {
     }
   };
 
-  const handleFundCampaign = async (campaignId: number) => {
+  const handleFundCampaign = async (campaign: Campaign) => {
     if (!session) return;
 
-    setActionLoading(`fund-${campaignId}`);
+    setCheckoutLoading(true);
     setError(null);
 
     try {
-      const res = await fetch(`/api/campaigns/${campaignId}/fund`, {
-        method: "POST",
+      const res = await fetch(`/api/campaigns/${campaign.id}/payment-intent`, {
         headers: {
           Authorization: `Bearer ${session.access_token}`,
-          "Content-Type": "application/json",
         },
       });
 
       const data = await res.json();
 
-      if (res.status === 402) {
-        // Payment not yet confirmed - in a real app, would open Stripe checkout
-        // For now, show message about simulating payment
-        setError(`Payment pending. In production, complete payment using Stripe. PaymentIntent: ${data.paymentIntent?.id}`);
-        return;
-      }
-
       if (!res.ok) {
-        throw new Error(data.error || "Failed to fund campaign");
+        throw new Error(data.error || "Failed to get payment details");
       }
 
-      await fetchData();
+      setClientSecret(data.clientSecret);
+      setCheckoutCampaign(campaign);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fund campaign");
+      setError(err instanceof Error ? err.message : "Failed to initiate payment");
     } finally {
-      setActionLoading(null);
+      setCheckoutLoading(false);
     }
+  };
+
+  const handleCheckoutSuccess = async () => {
+    setCheckoutCampaign(null);
+    setClientSecret(null);
+    // Refresh data to show updated payment status
+    await fetchData();
+  };
+
+  const handleCheckoutCancel = () => {
+    setCheckoutCampaign(null);
+    setClientSecret(null);
   };
 
   const handleVerify = async (missionId: string) => {
@@ -793,21 +808,21 @@ export default function ArtistDashboard() {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleFundCampaign(campaign.id);
+                                  handleFundCampaign(campaign);
                                 }}
-                                disabled={actionLoading === `fund-${campaign.id}`}
+                                disabled={checkoutLoading}
                                 style={{
                                   padding: "8px 16px",
-                                  backgroundColor: actionLoading === `fund-${campaign.id}` ? "#ccc" : "#ff9800",
+                                  backgroundColor: checkoutLoading ? "#ccc" : "#ff9800",
                                   color: "white",
                                   border: "none",
                                   borderRadius: "4px",
-                                  cursor: actionLoading === `fund-${campaign.id}` ? "not-allowed" : "pointer",
+                                  cursor: checkoutLoading ? "not-allowed" : "pointer",
                                   fontSize: "14px",
                                   fontWeight: "bold",
                                 }}
                               >
-                                {actionLoading === `fund-${campaign.id}` ? "Processing..." : "Fund Campaign"}
+                                {checkoutLoading ? "Loading..." : "Fund Campaign"}
                               </button>
                             )}
                             <button
@@ -1411,6 +1426,45 @@ export default function ArtistDashboard() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Stripe Checkout Modal */}
+      {checkoutCampaign && clientSecret && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: "rgba(0,0,0,0.5)",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          zIndex: 1000,
+        }}>
+          <div style={{
+            backgroundColor: "white",
+            borderRadius: "8px",
+            padding: "24px",
+            width: "100%",
+            maxWidth: "500px",
+            margin: "20px",
+          }}>
+            <h2 style={{ margin: "0 0 8px", fontSize: "20px" }}>
+              Fund Campaign
+            </h2>
+            <p style={{ color: "#666", marginBottom: "20px" }}>
+              {checkoutCampaign.title}
+            </p>
+
+            <StripeCheckout
+              clientSecret={clientSecret}
+              amount={checkoutCampaign.budget_cents}
+              onSuccess={handleCheckoutSuccess}
+              onCancel={handleCheckoutCancel}
+            />
           </div>
         </div>
       )}

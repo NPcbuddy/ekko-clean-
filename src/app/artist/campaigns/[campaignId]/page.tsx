@@ -4,6 +4,12 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import type { Session } from "@supabase/supabase-js";
+import dynamic from "next/dynamic";
+
+const StripeCheckout = dynamic(() => import("@/components/StripeCheckout"), {
+  ssr: false,
+  loading: () => <div style={{ padding: "20px", textAlign: "center" }}>Loading payment form...</div>,
+});
 
 interface Campaign {
   id: number;
@@ -62,6 +68,11 @@ export default function CampaignDetailPage() {
   const [missionPayout, setMissionPayout] = useState("");
   const [missionError, setMissionError] = useState<string | null>(null);
   const [missionLoading, setMissionLoading] = useState(false);
+
+  // Checkout modal state
+  const [showCheckout, setShowCheckout] = useState(false);
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   const formatCurrency = (cents: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -153,35 +164,40 @@ export default function CampaignDetailPage() {
   const handleFundCampaign = async () => {
     if (!session || !campaign) return;
 
-    setActionLoading("fund");
+    setCheckoutLoading(true);
     setError(null);
 
     try {
-      const res = await fetch(`/api/campaigns/${campaignId}/fund`, {
-        method: "POST",
+      const res = await fetch(`/api/campaigns/${campaignId}/payment-intent`, {
         headers: {
           Authorization: `Bearer ${session.access_token}`,
-          "Content-Type": "application/json",
         },
       });
 
       const data = await res.json();
 
-      if (res.status === 402) {
-        setError(`Payment pending. Complete payment using Stripe to fund this campaign.`);
-        return;
-      }
-
       if (!res.ok) {
-        throw new Error(data.error || "Failed to fund campaign");
+        throw new Error(data.error || "Failed to get payment details");
       }
 
-      await fetchData();
+      setClientSecret(data.clientSecret);
+      setShowCheckout(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fund campaign");
+      setError(err instanceof Error ? err.message : "Failed to initiate payment");
     } finally {
-      setActionLoading(null);
+      setCheckoutLoading(false);
     }
+  };
+
+  const handleCheckoutSuccess = async () => {
+    setShowCheckout(false);
+    setClientSecret(null);
+    await fetchData();
+  };
+
+  const handleCheckoutCancel = () => {
+    setShowCheckout(false);
+    setClientSecret(null);
   };
 
   const handleCreateMission = async (e: React.FormEvent) => {
@@ -443,19 +459,19 @@ export default function CampaignDetailPage() {
               {campaign.payment_status === "PENDING" && (
                 <button
                   onClick={handleFundCampaign}
-                  disabled={actionLoading === "fund"}
+                  disabled={checkoutLoading}
                   style={{
                     padding: "12px 24px",
-                    backgroundColor: actionLoading === "fund" ? "#ccc" : "#ff9800",
+                    backgroundColor: checkoutLoading ? "#ccc" : "#ff9800",
                     color: "white",
                     border: "none",
                     borderRadius: "4px",
-                    cursor: actionLoading === "fund" ? "not-allowed" : "pointer",
+                    cursor: checkoutLoading ? "not-allowed" : "pointer",
                     fontSize: "14px",
                     fontWeight: "bold",
                   }}
                 >
-                  {actionLoading === "fund" ? "Processing..." : "Fund Campaign"}
+                  {checkoutLoading ? "Loading..." : "Fund Campaign"}
                 </button>
               )}
               <button
@@ -823,6 +839,45 @@ export default function CampaignDetailPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Stripe Checkout Modal */}
+      {showCheckout && clientSecret && campaign && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: "rgba(0,0,0,0.5)",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          zIndex: 1000,
+        }}>
+          <div style={{
+            backgroundColor: "white",
+            borderRadius: "8px",
+            padding: "24px",
+            width: "100%",
+            maxWidth: "500px",
+            margin: "20px",
+          }}>
+            <h2 style={{ margin: "0 0 8px", fontSize: "20px" }}>
+              Fund Campaign
+            </h2>
+            <p style={{ color: "#666", marginBottom: "20px" }}>
+              {campaign.title}
+            </p>
+
+            <StripeCheckout
+              clientSecret={clientSecret}
+              amount={campaign.budget_cents}
+              onSuccess={handleCheckoutSuccess}
+              onCancel={handleCheckoutCancel}
+            />
           </div>
         </div>
       )}
