@@ -45,6 +45,11 @@ export default function CreatorDashboard() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitLoading, setSubmitLoading] = useState(false);
 
+  // Stripe Connect state
+  const [stripeConnected, setStripeConnected] = useState(false);
+  const [stripeOnboardingComplete, setStripeOnboardingComplete] = useState(false);
+  const [connectLoading, setConnectLoading] = useState(false);
+
   const checkUserRole = useCallback(async (accessToken: string) => {
     try {
       const res = await fetch("/api/auth/me", {
@@ -107,8 +112,57 @@ export default function CreatorDashboard() {
   useEffect(() => {
     if (session) {
       fetchMissions();
+      fetchConnectStatus();
     }
   }, [session]);
+
+  const fetchConnectStatus = async () => {
+    if (!session) return;
+
+    try {
+      const res = await fetch("/api/connect/status", {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setStripeConnected(data.connected);
+        setStripeOnboardingComplete(data.onboardingComplete);
+      }
+    } catch (err) {
+      console.error("Failed to fetch connect status:", err);
+    }
+  };
+
+  const handleConnectStripe = async () => {
+    if (!session) return;
+
+    setConnectLoading(true);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/connect/onboard", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to start onboarding");
+      }
+
+      // Redirect to Stripe onboarding
+      window.location.href = data.url;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to connect Stripe");
+      setConnectLoading(false);
+    }
+  };
 
   const fetchMissions = async () => {
     if (!session) return;
@@ -323,6 +377,74 @@ export default function CreatorDashboard() {
         <p style={{ color: "#666", marginTop: "8px" }}>
           Browse missions, accept work, and submit your content
         </p>
+      </div>
+
+      {/* Stripe Connect Status */}
+      <div style={{
+        maxWidth: "900px",
+        margin: "0 auto 24px",
+      }}>
+        <div style={{
+          padding: "16px 20px",
+          backgroundColor: stripeOnboardingComplete ? "#e8f5e9" : "#fff3e0",
+          borderRadius: "8px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}>
+          <div>
+            <div style={{
+              fontSize: "16px",
+              fontWeight: "bold",
+              color: stripeOnboardingComplete ? "#1b5e20" : "#ef6c00",
+            }}>
+              {stripeOnboardingComplete
+                ? "Stripe Connected"
+                : stripeConnected
+                ? "Complete Stripe Setup"
+                : "Connect Stripe to Receive Payouts"}
+            </div>
+            <div style={{ fontSize: "14px", color: "#666", marginTop: "4px" }}>
+              {stripeOnboardingComplete
+                ? "You can receive payouts for completed missions"
+                : "Connect your bank account to get paid for your work"}
+            </div>
+          </div>
+          {!stripeOnboardingComplete && (
+            <button
+              onClick={handleConnectStripe}
+              disabled={connectLoading}
+              style={{
+                padding: "10px 20px",
+                backgroundColor: connectLoading ? "#ccc" : "#635bff",
+                color: "white",
+                border: "none",
+                borderRadius: "4px",
+                cursor: connectLoading ? "not-allowed" : "pointer",
+                fontSize: "14px",
+                fontWeight: "bold",
+              }}
+            >
+              {connectLoading
+                ? "Loading..."
+                : stripeConnected
+                ? "Complete Setup"
+                : "Connect with Stripe"}
+            </button>
+          )}
+          {stripeOnboardingComplete && (
+            <span style={{
+              padding: "8px 16px",
+              backgroundColor: "#1b5e20",
+              color: "white",
+              borderRadius: "4px",
+              fontSize: "14px",
+              fontWeight: "bold",
+            }}>
+              Ready for Payouts
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Earnings Summary */}

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { getDb } from "@/lib/db";
-import { campaigns } from "@/lib/db/schema";
+import { campaigns, users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
@@ -40,6 +40,8 @@ export async function POST(request: Request) {
     );
   }
 
+  const db = getDb();
+
   // Handle the event
   switch (event.type) {
     case "payment_intent.succeeded": {
@@ -50,7 +52,6 @@ export async function POST(request: Request) {
       const campaignId = paymentIntent.metadata?.campaign_id;
       if (campaignId) {
         try {
-          const db = getDb();
           await db
             .update(campaigns)
             .set({ payment_status: "FUNDED" })
@@ -58,7 +59,6 @@ export async function POST(request: Request) {
           console.log(`Campaign ${campaignId} marked as FUNDED`);
         } catch (dbError) {
           console.error(`Failed to update campaign ${campaignId}:`, dbError);
-          // Don't fail the webhook - Stripe will retry
         }
       }
       break;
@@ -68,14 +68,44 @@ export async function POST(request: Request) {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
       console.log(`PaymentIntent failed: ${paymentIntent.id}`);
       console.log(`Failure reason: ${paymentIntent.last_payment_error?.message}`);
-      // Campaign stays in PENDING status
       break;
     }
 
     case "payment_intent.canceled": {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
       console.log(`PaymentIntent canceled: ${paymentIntent.id}`);
-      // Could update campaign status to CANCELED if needed
+      break;
+    }
+
+    case "account.updated": {
+      const account = event.data.object as Stripe.Account;
+      console.log(`Account updated: ${account.id}`);
+
+      // Check if onboarding is complete
+      if (account.details_submitted && account.payouts_enabled) {
+        try {
+          await db
+            .update(users)
+            .set({ stripe_onboarding_complete: new Date() })
+            .where(eq(users.stripe_account_id, account.id));
+          console.log(`User with Stripe account ${account.id} marked as onboarding complete`);
+        } catch (dbError) {
+          console.error(`Failed to update user for account ${account.id}:`, dbError);
+        }
+      }
+      break;
+    }
+
+    case "transfer.created": {
+      const transfer = event.data.object as Stripe.Transfer;
+      console.log(`Transfer created: ${transfer.id} for ${transfer.amount} ${transfer.currency}`);
+      break;
+    }
+
+    case "transfer.reversed": {
+      const transfer = event.data.object as Stripe.Transfer;
+      console.log(`Transfer reversed: ${transfer.id}`);
+      // Could revert mission state here if needed
       break;
     }
 

@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { missions, campaigns } from "@/lib/db/schema";
+import { missions, campaigns, users } from "@/lib/db/schema";
 import { assertTransition, MissionState } from "@/lib/state/mission";
 import { eq } from "drizzle-orm";
 import { requireRole } from "@/lib/auth";
+import Stripe from "stripe";
 
 export async function POST(
   request: Request,
@@ -13,6 +14,13 @@ export async function POST(
     if (!process.env.DATABASE_URL) {
       return NextResponse.json(
         { error: "DATABASE_URL environment variable is not set" },
+        { status: 500 }
+      );
+    }
+
+    if (!process.env.STRIPE_SECRET_KEY) {
+      return NextResponse.json(
+        { error: "STRIPE_SECRET_KEY environment variable is not set" },
         { status: 500 }
       );
     }
@@ -65,7 +73,7 @@ export async function POST(
     if (campaign.payment_status !== "FUNDED") {
       return NextResponse.json(
         { error: "Campaign is not funded. Please fund the campaign before processing payouts." },
-        { status: 402 } // Payment Required
+        { status: 402 }
       );
     }
 
@@ -77,8 +85,64 @@ export async function POST(
       );
     }
 
+    // Look up the creator's Stripe Connect account
+    if (!mission.creator_id) {
+      return NextResponse.json(
+        { error: "Mission has no creator assigned" },
+        { status: 400 }
+      );
+    }
+
+    // Find creator by auth_user_id
+    const [creator] = await db
+      .select()
+      .from(users)
+      .where(eq(users.auth_user_id, mission.creator_id))
+      .limit(1);
+
+    if (!creator) {
+      return NextResponse.json(
+        { error: "Creator not found" },
+        { status: 404 }
+      );
+    }
+
+    if (!creator.stripe_account_id) {
+      return NextResponse.json(
+        { error: "Creator has not connected their Stripe account. They must complete Stripe onboarding to receive payouts." },
+        { status: 400 }
+      );
+    }
+
     // Validate transition
     assertTransition(mission.state as MissionState, MissionState.PAID);
+
+    // Create a transfer to the creator's Connect account
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
+    let transfer: Stripe.Transfer;
+    try {
+      transfer = await stripe.transfers.create({
+        amount: mission.payout_cents,
+        currency: campaign.currency,
+        destination: creator.stripe_account_id,
+        metadata: {
+          mission_id: missionId,
+          campaign_id: campaign.id.toString(),
+          creator_id: creator.id.toString(),
+        },
+      });
+    } catch (stripeError) {
+      console.error("Stripe transfer failed:", stripeError);
+
+      if (stripeError instanceof Stripe.errors.StripeError) {
+        return NextResponse.json(
+          { error: `Payment failed: ${stripeError.message}` },
+          { status: 400 }
+        );
+      }
+      throw stripeError;
+    }
 
     // Update mission state to PAID
     const [updatedMission] = await db
@@ -90,19 +154,13 @@ export async function POST(
       .where(eq(missions.id, missionId))
       .returning();
 
-    // Note: Actual Stripe payout would require creator's Stripe Connect account ID
-    // For now, we just mark the mission as PAID
-    // In production, you would:
-    // 1. Look up creator's Stripe Connect account from a creators table
-    // 2. Call payoutCreator({ connectedAccountId, amount: mission.payout_cents, currency: campaign.currency })
-
     return NextResponse.json({
       mission: updatedMission,
       payout: {
         amount_cents: mission.payout_cents,
         currency: campaign.currency,
         status: "completed",
-        note: "Mission marked as paid. Stripe Connect integration required for actual transfers.",
+        transfer_id: transfer.id,
       },
     }, { status: 200 });
   } catch (error) {

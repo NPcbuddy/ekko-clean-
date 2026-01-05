@@ -21,6 +21,8 @@ export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   auth_user_id: varchar("auth_user_id").unique(), // Supabase auth user ID
   role: userRoleEnum("role").notNull(),
+  stripe_account_id: varchar("stripe_account_id"), // Stripe Connect account ID for creators
+  stripe_onboarding_complete: timestamp("stripe_onboarding_complete"), // When onboarding was completed
   created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
