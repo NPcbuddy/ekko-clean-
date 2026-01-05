@@ -10,9 +10,20 @@ export default function SignUpPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<UserRole>("CREATOR");
+  const [selectedRoles, setSelectedRoles] = useState<UserRole[]>(["CREATOR"]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const toggleRole = (role: UserRole) => {
+    setSelectedRoles((prev) => {
+      if (prev.includes(role)) {
+        // Don't allow removing the last role
+        if (prev.length === 1) return prev;
+        return prev.filter((r) => r !== role);
+      }
+      return [...prev, role];
+    });
+  };
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,14 +43,14 @@ export default function SignUpPage() {
       }
 
       if (data.session) {
-        // Sync user to public.users table
+        // Sync user to public.users table with selected roles
         const response = await fetch("/api/auth/sync-user", {
           method: "POST",
           headers: {
             "Authorization": `Bearer ${data.session.access_token}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ role }),
+          body: JSON.stringify({ roles: selectedRoles }),
         });
 
         if (!response.ok) {
@@ -133,30 +144,29 @@ export default function SignUpPage() {
 
         <div>
           <label style={{ display: 'block', marginBottom: '8px' }}>
-            I am a...
+            I am a... (select one or both)
           </label>
           <div style={{ display: 'flex', gap: '16px' }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
               <input
-                type="radio"
-                name="role"
-                value="CREATOR"
-                checked={role === "CREATOR"}
-                onChange={(e) => setRole(e.target.value as UserRole)}
+                type="checkbox"
+                checked={selectedRoles.includes("CREATOR")}
+                onChange={() => toggleRole("CREATOR")}
               />
               Creator
             </label>
             <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
               <input
-                type="radio"
-                name="role"
-                value="ARTIST"
-                checked={role === "ARTIST"}
-                onChange={(e) => setRole(e.target.value as UserRole)}
+                type="checkbox"
+                checked={selectedRoles.includes("ARTIST")}
+                onChange={() => toggleRole("ARTIST")}
               />
               Artist
             </label>
           </div>
+          <p style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+            You can be both a Creator and an Artist
+          </p>
         </div>
 
         <button

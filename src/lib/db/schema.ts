@@ -2,6 +2,10 @@ import { pgEnum, pgTable, serial, timestamp, varchar, integer, bigint, uuid, tex
 
 export const userRoleEnum = pgEnum("user_role", ["ARTIST", "CREATOR"]);
 
+// Valid roles for the roles array
+export type UserRole = "ARTIST" | "CREATOR";
+export const VALID_ROLES: UserRole[] = ["ARTIST", "CREATOR"];
+
 export const paymentStatusEnum = pgEnum("payment_status", [
   "PENDING",
   "FUNDED",
@@ -20,7 +24,8 @@ export const missionStateEnum = pgEnum("mission_state", [
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   auth_user_id: varchar("auth_user_id").unique(), // Supabase auth user ID
-  role: userRoleEnum("role").notNull(),
+  role: userRoleEnum("role"), // Deprecated: use roles array instead
+  roles: text("roles").array().notNull().default([]), // Array of roles: ["ARTIST"], ["CREATOR"], or ["ARTIST", "CREATOR"]
   stripe_account_id: varchar("stripe_account_id"), // Stripe Connect account ID for creators
   stripe_onboarding_complete: timestamp("stripe_onboarding_complete"), // When onboarding was completed
   created_at: timestamp("created_at").defaultNow().notNull(),

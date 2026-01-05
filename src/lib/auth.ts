@@ -49,14 +49,16 @@ export async function getAuthUserId(request: NextRequest | Request): Promise<str
   }
 }
 
+export type UserRole = "ARTIST" | "CREATOR";
+
 /**
  * Get app user record from public.users table by auth_user_id
  * Returns the user if found, or null if not found
  */
 export async function getAppUser(
   authUserId: string,
-  requiredRole?: "ARTIST" | "CREATOR"
-): Promise<{ id: number; role: "ARTIST" | "CREATOR" } | null> {
+  requiredRole?: UserRole
+): Promise<{ id: number; roles: UserRole[] } | null> {
   const { getDb } = await import("@/lib/db");
   const { users } = await import("@/lib/db/schema");
   const { eq } = await import("drizzle-orm");
@@ -74,12 +76,18 @@ export async function getAppUser(
     return null;
   }
 
-  // If a required role is specified, verify it matches
-  if (requiredRole && user.role !== requiredRole) {
+  // Get roles array, falling back to legacy role field if roles is empty
+  let roles: UserRole[] = (user.roles || []) as UserRole[];
+  if (roles.length === 0 && user.role) {
+    roles = [user.role as UserRole];
+  }
+
+  // If a required role is specified, verify user has it
+  if (requiredRole && !roles.includes(requiredRole)) {
     return null;
   }
 
-  return { id: user.id, role: user.role };
+  return { id: user.id, roles };
 }
 
 /**
@@ -98,12 +106,12 @@ export async function requireAuth(request: NextRequest | Request): Promise<strin
  */
 export async function requireRole(
   request: NextRequest | Request,
-  requiredRole: "ARTIST" | "CREATOR"
-): Promise<{ authUserId: string; appUser: { id: number; role: "ARTIST" | "CREATOR" } }> {
+  requiredRole: UserRole
+): Promise<{ authUserId: string; appUser: { id: number; roles: UserRole[] } }> {
   const authUserId = await requireAuth(request);
   const appUser = await getAppUser(authUserId, requiredRole);
 
-  if (!appUser || appUser.role !== requiredRole) {
+  if (!appUser || !appUser.roles.includes(requiredRole)) {
     throw new Error("FORBIDDEN");
   }
 

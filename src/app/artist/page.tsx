@@ -55,11 +55,14 @@ const statusColors: Record<string, { bg: string; text: string }> = {
   REJECTED: { bg: "#ffebee", text: "#c62828" },
 };
 
+type UserRole = "ARTIST" | "CREATOR";
+
 export default function ArtistDashboard() {
   const router = useRouter();
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [accessDenied, setAccessDenied] = useState(false);
+  const [userRoles, setUserRoles] = useState<UserRole[]>([]);
   const [activeTab, setActiveTab] = useState<TabType>("campaigns");
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [campaignMissions, setCampaignMissions] = useState<Record<number, Mission[]>>({});
@@ -108,7 +111,12 @@ export default function ArtistDashboard() {
       }
 
       const user = await res.json();
-      if (user.role !== "ARTIST") {
+      // Store user roles
+      const roles: UserRole[] = user.roles || (user.role ? [user.role] : []);
+      setUserRoles(roles);
+
+      // Check if user has ARTIST role
+      if (!roles.includes("ARTIST")) {
         setAccessDenied(true);
         return false;
       }
@@ -525,20 +533,39 @@ export default function ArtistDashboard() {
           <h1 style={{ fontSize: "28px", fontWeight: "bold", margin: 0 }}>
             Artist Dashboard
           </h1>
-          <button
-            onClick={() => router.push("/")}
-            style={{
-              padding: "8px 16px",
-              backgroundColor: "#6c757d",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer",
-              fontSize: "14px",
-            }}
-          >
-            Back to Home
-          </button>
+          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+            {/* Role Switcher */}
+            {userRoles.includes("CREATOR") && (
+              <button
+                onClick={() => router.push("/creator")}
+                style={{
+                  padding: "8px 16px",
+                  backgroundColor: "#0070f3",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                }}
+              >
+                Switch to Creator
+              </button>
+            )}
+            <button
+              onClick={() => router.push("/")}
+              style={{
+                padding: "8px 16px",
+                backgroundColor: "#6c757d",
+                color: "white",
+                border: "none",
+                borderRadius: "4px",
+                cursor: "pointer",
+                fontSize: "14px",
+              }}
+            >
+              Back to Home
+            </button>
+          </div>
         </div>
         <p style={{ color: "#666", marginTop: "8px" }}>
           Manage campaigns, create missions, and review submissions

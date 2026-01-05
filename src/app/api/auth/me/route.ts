@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { users } from "@/lib/db/schema";
+import { users, type UserRole } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { getAuthUserId } from "@/lib/auth";
 
 /**
- * Get current user's profile including role
+ * Get current user's profile including roles
  */
 export async function GET(request: Request) {
   try {
@@ -41,9 +41,16 @@ export async function GET(request: Request) {
       );
     }
 
+    // Get roles array, falling back to legacy role field if roles is empty
+    let roles: UserRole[] = (user.roles || []) as UserRole[];
+    if (roles.length === 0 && user.role) {
+      roles = [user.role as UserRole];
+    }
+
     return NextResponse.json({
       id: user.id,
-      role: user.role,
+      roles,
+      role: roles[0] || user.role, // Legacy field for backwards compatibility
       created_at: user.created_at,
     });
   } catch (error) {
